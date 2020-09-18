@@ -5,7 +5,7 @@ Descriptions of folders and their projects:
 
 ## ECON485: Empirical Methods and Machine Learning
 
-This course was a continuation of an undergraduate econometrics course that further explored the multiple linear regression model and covered model selection techniques. Topics included resampling methods, selection criteria, subset selection, shrinkage methods, classification methods, and unsupervised learning. The folder contains my weekly assignments pertaining to each of the listed topics.
+This course was a continuation of an undergraduate econometrics course that further explored the multiple linear regression model and covered model selection techniques. Topics included resampling methods, selection criteria, subset selection, shrinkage methods, classification methods, and unsupervised learning. The folder contains my weekly assignments pertaining to each of the listed topics along with my lecture notes.
 
 ## ECON321: Econometrics (External Link)
 
