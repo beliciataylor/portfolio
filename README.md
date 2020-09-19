@@ -1,5 +1,5 @@
 # Portfolio
-_Portfolio of my projects_
+_My portfolio of projects_
 
 Descriptions of folders and their projects:
 
