@@ -1,0 +1,180 @@
+---
+title: "Inference"
+author: "Belicia Rodriguez"
+date: 2019-11-25
+categories:
+  - undergraduate econometrics
+output: html_document
+---
+```{r setup, include=FALSE}
+# call packages here
+library(tidyverse)
+library(estimatr)
+library(stargazer)
+library(wooldridge)
+library(lmtest)
+library(car)
+library(texreg)
+# load data
+data(htv, package = 'wooldridge')
+```
+
+# Note on Post:
+
+This post is assignment 5 from my undergraduate econometrics course.
+
+# htv Dataset
+
+1. Estimate the regression model
+
+$$ educ = \beta_0 + \beta_1 *motheduc + \beta_2 *fatheduc + \beta_3 *abil + \beta_4 *abil^2 + u$$
+by OLS take a look at the results in the usual form but report the results using stargazer. 
+
+2. Test the null hypothesis that educ is linearly related to abil against the alternative that the relationship is quadratic. Show the tstat and the pvalue associated with that test. Do you reject the null hypothesis? what does that mean? EXPLAIN
+
+Since the t-value is greater than the p-value, you can reject the null hypothesis. Rejecting the null hypothesis means that the coefficient does not equal 0, and therefore has a relationship with the dependent variable and is relevant to the model. The p-value is the smallest critical value that will reject the null hypothesis for a particular coefficient. If the t-value is greater than the p-value, then the null hypothesis can be rejected. In this case, because p-value is zero and t-value is 6.0934, then you can reject the null hypothesis.
+
+3. Test the null hypothesis that the effect of mothereduc is bigger 0.3. 
+
+```{r, message=FALSE,  results='asis'}
+# to include the term ability squared you can create a separate variable or even aesier use the I(function) in the lm command to add the term
+# abil2<-htv$abil^2 this will create the variable separate, but better to use I(abil^2)
+
+## create model object for regression
+model <- lm(educ ~ motheduc + fatheduc + abil + I(abil^2), data = htv)
+
+# stargazer table
+stargazer(model, type = "html")
+
+```
+
+
+```{r, results='hold'}
+# Reproduce t statistic
+# When parenthesis are added the object is printed
+
+## collect betas and sd for model
+coef_model <- coef(model)
+sd_model <- summary(model)$coefficient[,2]
+
+## Test the null hypothesis that educ is linearly related to abil against the alternative that the relationship is quadratic
+print("T-test for linear vs quadratic relation on ability")
+as.numeric(tstat <- (coef_model["I(abil^2)"] - 0) / sd_model["I(abil^2)"])
+
+# Reproduce p value
+df <- nrow(htv) - 5 - 1
+print(paste("pvalue =", round(pt(-abs(tstat), df),5)))
+
+# Reproduce t statistic
+# When parenthesis are added the object is printed
+# Is the same as doing bhat / se but it allows you to see where to add the value if different than zero 
+
+## Test the null hypothesis that the effect of mothereduc is bigger 0.3.
+print("T-test for mother educ > 0.3")
+as.numeric(tstat <- (coef_model["motheduc"] - 0.3) / sd_model["motheduc"])
+
+# Reproduce p value
+df <- nrow(htv) - 5 - 1
+print(paste("pvalue =", round(pt(abs(tstat), df),6)))
+
+```
+
+4. Using the equation in part (2), test $H_0: \beta_1=\beta_2$ against a two-sided alternative. What is the p-value of the test? 
+
+This requires creating a new regression with a $\theta_1=\beta_1-\beta_2$ and then test for $H_0: \theta_1=0$
+
+Change the regression to create $\theta_1=\beta_1-\beta_2$ 
+
+Add and subtract $\beta_2 motheduc$ and create a variable $parentedu=motheduc+fatheduc$:
+
+$$ educ = \beta_0 + \beta_1 motheduc - \beta_2 motheduc + \beta_2 motheduc+ \beta_2 fatheduc + \beta_3 abil + \beta_4 abil^2 + u$$
+
+$$ educ = \beta_0 + (\beta_1 - \beta_2)   motheduc + \beta_2  (motheduc+fatheduc) + \beta_3 abil + \beta_4 abil^2 + u$$
+$$ educ = \beta_0 + \theta_1   motheduc + \beta_2  (parentedu) + \beta_3 abil + \beta_4 abil^2 + u$$
+
+By testing the null hypothesis that $H_0:\theta_1=0$ with $alpha=0.05$ we are testing $H_0: \beta_1=\beta_2$. Run the regression that has $\theta_1$ as a regressor and look at the t-test for $\theta_1$
+
+```{r, results='hold'}
+#critival Values for alpha=5% and 1% for 1225 degrees of freedom 
+print("critical values for alpha 5% and 1% 2 tails")
+alpha_2 <- c(0.025, 0.005)
+qt(alpha_2, 1225)
+
+# create parenteduc
+htv <- htv %>% mutate(parenteduc = motheduc + fatheduc)
+
+# regression with theta1
+theta1reg <- lm(educ ~ motheduc + parenteduc + abil + I(abil^2), data=htv)
+
+```
+
+```{r, results='asis'}
+# stargazer table
+stargazer(theta1reg, type = "html")
+```
+
+The value of $\theta_1$ is equal to `r round(summary(theta1reg)$coefficients["motheduc","Estimate"],3) ` with a t-stat of `r round(as.numeric(tstat <- (as.numeric(coef(theta1reg)["motheduc"])) / summary(theta1reg)$coefficients[2,2]),4) ` and a p-value of `r round(summary(theta1reg)$coefficients["motheduc","Pr(>|t|)"],4) ` this means that we fail to reject the null hypothesis that  $H_0:\theta_1=0$ at the 1% and 5% significance level which means that $\beta_1$ = $\beta_2$ therefore the level of education of mother's and father's education has the same magnitute.
+
+
+5. Add the two college tuition variables to the regression from part (2) and determine whether they are jointly statistically significant. 
+
+First do the F-test step-by-step
+
+```{r Ftest, results='hold'}
+# CV for alpha=1% using the F distribution with 1223 degrees of fredom d.f. :
+alpha <- 0.01
+df <- 1223
+qf(1-alpha, 2, df)
+
+## F test step by step
+# Unrestricted OLS regression:  
+unrestricted <- lm(educ ~ motheduc + fatheduc + abil + I(abil^2) + tuit17 + tuit18, data = htv)
+
+# Restricted OLS regression:
+restricted <- lm(educ ~ motheduc + fatheduc + abil + I(abil^2), data = htv)
+
+# R2:
+r2.ur <- summary(unrestricted)$r.squared # R squared unrestricted
+r2.r <- summary(restricted)$r.squared # R squared restricted 
+print(paste("$R^2$ unrestricted=", r2.ur))
+print(paste("$R^2$ restricted=", r2.r))
+# F statistic:
+F <- (r2.ur-r2.r) / (1-r2.ur) * unrestricted$df/2
+print(paste("F-stat=", F))
+# p value = 1-cdf of the appropriate F distribution:
+print(paste("p-value=", round(1-pf(F, 2, unrestricted$df),3)))
+```
+
+Then use any of the other methods.
+
+```{r}
+# F test 
+linearHypothesis(unrestricted, c("tuit17", "tuit18"))
+
+```
+
+This shows that in this case we **do not reject the null hypothesis** that the coefficients are jointly zero. 
+
+6. Use function `confint()` to find the confidence intervals of all the parameters in the unsrestricted model from (4) What do you conclude? EXPLAIN this results in the light of the significance of your coefficients
+
+```{r}
+confint(unrestricted)
+```
+
+The confidence interval for tuit17 and tuit18 includes zero, whereas the other intervals do not. Therefore, the confidence interval supports the F test conclusion that the coefficients for tuit17 and tuit18 are jointly zero.
+
+
+7. Using the Breush-Pagan test, test for heteroskedasticity in your model  
+$$ educ = \beta_0 + \beta_1 *motheduc + \beta_2 *fatheduc + \beta_3 *abil + \beta_4 *abil^2 + u$$ 
+then estimate the model with robust standard errors (correcting for the heteroskedasticy problem), and the present both ( OLS and robust) the results in a table using `screenreg()`. 
+
+Do the significance of your results change after the correction? What about the standard errors?
+
+The significance of the results do not change; however, the standard errors have all increased.
+
+```{r}
+bptest(model)
+model_hccm <- lm_robust(educ ~ motheduc + fatheduc + abil + I(abil^2), data = htv) %>% extract.lm_robust(include.ci = FALSE)
+screenreg(list(model, model_hccm), digits = 3)
+```
+

@@ -4,9 +4,11 @@ _My portfolio of projects_
 Descriptions of folders and their projects:
 
 ## ECON485: Empirical Methods and Machine Learning
+_Emory University Spring 2020_
 
 This course was a continuation of an undergraduate econometrics course that further explored the multiple linear regression model and covered model selection techniques. Topics included resampling methods, selection criteria, subset selection, shrinkage methods, classification methods, and unsupervised learning. The folder contains my weekly assignments pertaining to each of the listed topics along with my lecture notes.
 
-## ECON321: Econometrics (External Link)
+## ECON321: Econometrics
+_Emory University Fall 2019_
 
-Since my econometrics class used RMarkdown to submit assignments and our final project, I thought it best to publish my work on my [data science website](https://belledata.rbind.io/categories/undergraduate-econometrics/), which fully renders RMarkdown files. The RMarkdown files associated with the posts are located at my [belledata repository](https://github.com/beliciataylor/belledata/tree/master/content/post).
+This folder contains Jupyter notebook versions of my Econometrics assignments. Topics include regression analysis, multicolinearity, OLS, inference, and more. My final project for the course titled _Pregnancy Habits and Child Birth Weights_ is also included. Originally, the assignments were submitted as RMarkdown files, and these files can also be found in the RMarkdown folder. 

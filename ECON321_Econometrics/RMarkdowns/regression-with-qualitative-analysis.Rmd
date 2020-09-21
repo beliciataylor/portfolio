@@ -1,0 +1,111 @@
+---
+title: "Regressions with Qualitative Information"
+author: "Belicia Rodriguez"
+date: 2019-11-18
+categories:
+  - undergraduate econometrics
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(wooldridge)
+library(tidyverse)
+library(stargazer)
+library(data.table)
+library(car)
+library(knitr)
+```
+
+# Note on Post:
+
+This post is assignment 4 from my undergraduate econometrics course.
+
+# Regressions with Qualitative Information 
+
+(1) Using the data wage2 from the wooldridge package, estimate the models: m1, m2, m3, m4 
+
+Model 1 $$log(wage) = \beta_0 + \beta_1 educ + \beta_2 exper + \beta_3tenure + \beta_4 married + u $$
+Model 2  $$log(wage) = \beta_0 + \beta_1 educ + \beta_2 exper + \beta_3tenure + \beta_4 married + \beta_5 black + u $$
+Model 3  $$log(wage) = \beta_0 + \beta_1 educ + \beta_2 exper + \beta_3tenure + \beta_4 married + \beta_5 black + \beta_6 south + u $$
+Model 4  $$log(wage) = \beta_0 + \beta_1 educ + \beta_2 exper + \beta_3tenure + \beta_4 married + \beta_5 black + \beta_6 south + \beta_7 urban + u$$ 
+
+(2) Report the results using a stargazer table.
+  * Holding other factors fixed what is the approximate difference in monthly salary between blacks and non blacks, married vs single, urban vs rural?
+  * Are these statistically significant?
+
+I used model 4 coefficient to interpret the differences in monthly salary.
+
+Blacks and nonblacks: Holding other factors fixed, the log wage of a black person is 0.188 less than the log wage of a nonblack person.
+
+Married vs single: Holding other factors fixed, the log wage of a married person is 0.199 more than the log wage of a single person.
+
+Urban vs rural: Holding other factors fixed, the log wage of an urban worker is 0.184 more than the log wage of a rural worker.
+
+All of the coefficients are statistically significant because their t-statistic is higher than the critical value at a significance level of 1%, and this has been calculated in the stargazer table, where all of the coefficients have three stars next to their values.
+
+```{r, results = 'asis', warning=FALSE}
+# load data
+data("wage2", wooldridge)
+
+# models
+model1 <- lm(lwage ~ educ + exper + tenure + married, wage2)
+model2 <- lm(lwage ~ educ + exper + tenure + married + black, wage2)
+model3 <- lm(lwage ~ educ + exper + tenure + married + black + south, wage2)
+model4 <- lm(lwage ~ educ + exper + tenure + married + black + south + urban, wage2)
+
+# stargazer table
+stargazer(model1, model2, model3, model4, type = "html", column.labels = c("Model 1", "Model 2", "Model 3", "Model 4"), dep.var.labels = "Log(Salary)", covariate.labels = c("Education", "Experience", "Tenure", "Married", "Black", "South", "Urban"))
+```
+
+(2) Using model 4 add the variables $exper^2$ and $tenure^2$ to the equation and show that they are jointly significant at 20% level
+
+The variables are jointly significant at 20% level because the F-statistic is 0.226, which is greater than the critical value 0.2.
+
+```{r}
+model4_2 <- lm(lwage ~ educ + exper + I(exper^2) + tenure + I(tenure^2) + married + black + south + urban, wage2)
+linearHypothesis(model4_2, c("I(exper^2)", "I(tenure^2)"))
+```
+
+(3) Using model 4 add dummy variable for age groups less that or equal to 30, between 30 to 35, older than 35. Do a frequency table using `kable()` showing the distribution of each group.  Make older than 35 the reference group, run a regression, what can you say about the effect of age group on the wages? Put the results in a stargarzer table.
+
+First, interpreting the coefficients, we see that holding other factors constant, the log wage of a worker younger than 30 will decrease by 0.080 in reference to a worker older than 35. Also, holding other factors constant, the log wage of a worker between 30 and 35 will decrease by 0.039 in reference to a worker older than 35. Both the coefficients are negative, which means a worker older than 35 is gainig more log wage. Also, the coefficient for a worker younger than 35 is smaller than the coefficient of a worker between 30 and 35. Therefore, the effect of age group on wages shows that as a worker gets older, the worker's log wage will increase. 
+
+```{r, results='asis'}
+# create dummy variables
+wage2$age_dummy <- cut(wage2$age, c(0,30,35,38))
+
+# frequency table using knit
+table(wage2$age_dummy) %>% kable(col.names=c("Age group", "Freq"))
+
+# relevel factor variable with "order than 35" the reference group
+wage2$age_dummy <- relevel(wage2$age_dummy, "(35,38]")
+
+# model with dummy variable
+model_dummy <- lm(lwage ~ educ + exper + tenure + married + black + south + urban + age_dummy, wage2)
+
+# stargazer table
+stargazer(model_dummy, type="html", covariate.labels = c("Education", "Experience", "Tenure", "Married", "Black", "South", "Urban", "Younger than 30", "Between 30-35"), dep.var.labels = "log(wage)")
+```
+
+
+(4) Use model 4 but now allow wages to differ accross four groups of people, married and black, married and nonblack, single and black and single and non black. Put the results in a stargarzer table. (Hint: Think about how interactions work, what are all the categories in the interaction and what is the base category.) Do not create the interaction separate. Do it inside the `lm()` directly as learned in class. Interpret your results
+
+Holding other factors constant, the log salary of a married-nonblack person will increase by 0.189 in reference to a single-nonblack person.
+
+Holding other factors constant, the log salary of a single-black person will decrease by 0.241 in reference to a single-nonblack person.
+
+Holding other factors constant, the log salary of a married-black person will increase by 0.061 in reference to a single-nonblack person.
+
+Therefore, a married-black individual gains more than a nonblack-single individual, but a married-black individual does not earn more than a married-nonblack individual. This is because both coefficients are positive, but a married-black coefficient is still less than the married-nonblack coefficient. The single-black coefficient is negative, meaning a single-black person earns less log wage than a single-nonblack individual.
+
+
+```{r, results='asis'}
+# model with interaction
+model4 <- lm(lwage ~ educ + exper + tenure + married*black + south + urban, wage2)
+
+# stargazer table
+stargazer(model4, type="html", covariate.labels = c("Education", "Experience", "Tenure", "Married-Non Black", "Single-Black", "Married-Black", "South", "Urban"), dep.var.labels = c("Log(Salary)"), order=c(1,2,3,4,5,8,6,7,9))
+
+```
+
+

@@ -1,0 +1,117 @@
+---
+title: "Multicolinearity and OLS"
+author: "Belicia Rodriguez"
+date: 2019-10-25
+categories:
+  - undergraduate econometrics
+output: 
+  html_document: 
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+# Chunk setup
+knitr::opts_chunk$set(tidy.opts=list(width.cutoff=50),tidy=TRUE)
+
+# Call or load your packages here
+library(wooldridge)
+library(tidyverse)
+library(stargazer)
+library(car)
+library(corrplot)
+```
+
+# Note on Post:
+
+This post is assignment 3 from my undergraduate econometrics class.
+
+# Multicolinearity detection and output presentation
+
+(1) Using the data gpa1 from the wooldridge package create two new variables in the gpa1 data set.
+
+$$x = 3+ ACT*2$$
+$$z=ACT+2*hsGPA$$
+
+```{r new variables x and y, warning=FALSE}
+# load gpa1 data
+data("gpa1", wooldridge)
+
+# create new variables
+gpa1 <- gpa1 %>% mutate(x = 3 + ACT*2, z = ACT + 2*hsGPA)
+```
+
+(2) Create a correlation matrix of colGPA, hsGPA, ACT, x, z, and a correlation matrix graph
+
+```{r correlation matrix and graph}
+# correlation matrix
+round(cor(gpa1[,c('colGPA','hsGPA', 'ACT', 'x', 'z')]),3)
+
+# correlation graph
+pairs(~colGPA+hsGPA+ACT+x+z,data=gpa1, 
+   main="Simple Scatterplot Matrix")
+
+# graph using corrplot
+corrplot(cor(gpa1[,c('colGPA','hsGPA', 'ACT', 'x', 'z')]), title = "Cooler Correlation Graph", type = "lower", tl.cex = 3/4, mar =c(1,1,1,1))
+```
+
+(3) What can you say about the correlation matrix and the graphs?*
+
+The correlation matrix shows that the correlation between x and ACT is exactly one, and the correlation between x and z is very close to 1 (`r round(cor(gpa1$x, gpa1$z),3)`). z and ACT also have a correlation that is very close to 1 (`r round(cor(gpa1$z, gpa1$ACT),3)`) and is in fact identical to the correlation between x and z. All the other correlation relationships are below 0.6. The graphs show that ACT and x, ACT and z, and x and z all have linear relationships because their correlation graph looks like a straight line whereas the other graphs look more scattered. All of this is to say that the correlation between ACT, z, and/or x are (almost) perfect because the x and z variable are linear transformations of the ACT variable.
+
+(4) Run the following regressions, and show them all, together in a nice looking table  
+
+$$colGPA=\beta_0 + \beta_1hsGPA + \beta_2ACT + u $$
+
+$$colGPA=\beta_0 + \beta_1hsGPA + \beta_2ACT + + \beta_3x + + \beta_4z + u $$
+
+(5) Make a summary of the second regression.
+
+```{r regression table, results='asis'}
+# run regressions
+reg1 <- lm(colGPA ~ hsGPA + ACT, gpa1)
+reg2 <- lm(colGPA ~ hsGPA + ACT + x + z, gpa1)
+
+# create table
+stargazer(reg1, reg2, type="html", title = "Determinants of College GPA", dep.var.caption = "College GPA", dep.var.labels = "Previous Academics", column.labels = c("Basic Model", "Model with multicolinearity"))
+```
+
+(6) Show the results for your regressions using the stargazaer package
+
+```{r, results='hide'}
+summary(reg2)
+```
+
+(7) What happened in the output and why?
+
+The output could not produce coefficients for the x and z variable because you cannot create a coefficient for a variable that has a linear relationship with another variable. There can be no multicolinearlity present in a model, therefore, the output produced NA for the coefficient value of x and z and left the x and z row in the table empty.
+
+# Prove some OLS properties 
+
+(1) Evaluate the vif of model1 and model2. See what happens to model2, comment, and fix the code to be able to knit
+
+```{r}
+vif(reg1)
+
+# Doesn't work because of multicolinearity
+# vif(reg2)
+```
+
+(2) Demonstrate that the residuals of model1 add up to zero. What does that mean?
+
+```{r}
+# residuals of model1 adds to zero
+round(sum(resid(reg1)),4)
+
+```
+
+When the sum of the residuals adds up to zero, then the fitted line through the data perfectly balances the residual so that the difference between sample estimate and true population value all adds to zero, which means the line is the best line of fit through the data.
+
+(3) Demonstrate the $R^2$ of a regression of the residuals of model1 on the original regressors must be zero. What does this mean?
+
+```{r}
+# regression of reg1 residuals with hsGPA and ACT
+round(summary(lm(resid(reg1)~hsGPA + ACT, gpa1))$r.squared, 4)
+
+```
+
+The $R^2$ of the regression between the residuals and the variables hsGPA and ACT should be zero because that the variables hsGPA and ACT explain 0% of the variation in the residuals of the model. This means that the variables contain no information about the unobserved factors in the residual.
