@@ -1,8 +1,6 @@
 # Portfolio
 _My portfolio of projects_
 
-Descriptions of folders and their projects:
-
 ## ECON485: Empirical Methods and Machine Learning
 _Emory University Spring 2020_
 
