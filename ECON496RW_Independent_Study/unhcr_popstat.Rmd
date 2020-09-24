@@ -1,0 +1,558 @@
+---
+title: "UNHCR Population Statistics"
+author: "Belicia Rodriguez"
+date: "11/21/2019"
+output:
+  html_document:
+    df_print: paged
+  pdf_document: default
+---
+```{r setup, include=TRUE}
+knitr::opts_chunk$set(echo = TRUE)
+options(scipen=999)
+# download needed packages
+library(tidyverse)
+library(knitr)
+library(ggplot2)
+library(scales)
+
+# download dataset
+pop_stat <- read.csv("unhcr_popstats.csv", skip=3) %>% 
+  rename(
+    "year"=`Year`, 
+    "country_territory_of_asylum_residence"=`Country...territory.of.asylum.residence`, 
+    "origin"=`Origin`, 
+    "refugee_including_refugeelike_situations"=`Refugees..incl..refugee.like.situations.`, 
+    "asylum_seekers_pending_cases"=`Asylum.seekers..pending.cases.`, 
+    "returned_refugees"=`Returned.refugees`, 
+    "internally_displaced_persons"=`Internally.displaced.persons..IDPs.`, 
+    "returned_IDPs"=`Returned.IDPs`, 
+    "stateless_persons"=`Stateless.persons`, 
+    "others_of_concern"=`Others.of.concern`, 
+    "total_population"=`Total.Population`
+    ) %>% 
+  mutate(
+    year=as.numeric(year), 
+    refugee_including_refugeelike_situations = as.numeric(refugee_including_refugeelike_situations), 
+    asylum_seekers_pending_cases=as.numeric(asylum_seekers_pending_cases), 
+    returned_refugees=as.numeric(returned_refugees), 
+    internally_displaced_persons=as.numeric(internally_displaced_persons), 
+    returned_IDPs=as.numeric(returned_IDPs), 
+    stateless_persons=as.numeric(stateless_persons), 
+    others_of_concern=as.numeric(others_of_concern), 
+    total_population=as.numeric(total_population)
+    )
+
+# fix country names in both asylum_residence and origin
+for (var in c(pop_stat$country_territory_of_asylum_residence, pop_stat$origin)) {
+  levels(var)[levels(var)=="Serbia and Kosovo (S/RES/1244 (1999))"] <- "Serbia and Kosovo"
+  levels(var)[levels(var)=="C\xf4te d'Ivoire"] <- "Côte d'Ivoire"
+  levels(var)[levels(var)=="Cura\xe7ao"] <- "Curaçao"
+  levels(var)[levels(var)=="Serbia and Kosovo (S/RES/1244 (1999))"] <- "Serbia and Kosovo"
+  levels(var)[levels(var)=="C\xf4te d'Ivoire"] <- "Côte d'Ivoire"
+  levels(var)[levels(var)=="Cura\xe7ao"] <- "Curaçao"
+  levels(var)[levels(var)=="Dem. People's Rep. of Korea"] <- "Rep. of Korea"
+  levels(var)[levels(var)=="Palestinian"] <- "State of Palestine"
+}
+
+# sustainable development goals (sdg) regional groupings
+add_UN_regions <- function(df, outflux=TRUE) {
+  # vectors of countries and their regions (total: 240)
+    sub_saharan_africa <- c(
+      "Angola", "Benin", "Botswana", "Burkina Faso", "Burundi", "Cabo Verde", "Cameroon", "Central African Rep.",
+      "Chad", "Comoros", "Congo", "Côte d'Ivoire", "Dem. Rep. of the Congo", "Djibouti", "Equatorial Guinea",
+      "Eritrea", "Ethiopia", "Gabon", "Gambia", "Ghana", "Guinea", "Guinea-Bissau", "Kenya", "Lesotho", "Liberia",
+      "Madagascar", "Malawi", "Mali", "Mauritania", "Mauritius", "Mayotte", "Mozambique", "Namibia", "Niger",
+      "Nigeria", "Réunion", "Rwanda", "Sao Tome and Principe", "Senegal", "Seychelles", "Sierra Leone", "Somalia",
+      "South Africa", "South Sudan", "Swaziland", "Togo", "Uganda", "United Rep. of Tanzania", "Zambia", "Zimbabwe"
+      ) #50
+
+    northern_africa_western_asia <- c(
+      "Algeria", "Egypt", "Libya", "Morocco", "Sudan", "Tunisia", "Western Sahara", "Azerbaijan", "Armenia",
+      "Bahrain", "Cyprus", "Georgia", "Iraq", "Israel", "Jordan", "Kuwait", "Lebanon", "State of Palestine", "Oman",
+      "Qatar", "Saudi Arabia", "Syrian Arab Rep.", "Turkey", "United Arab Emirates", "Yemen", "Saint Helena", 
+      "West Bank and Gaza Strip"
+      ) #27
+
+    central_southern_asia <- c(
+      "Kazakhstan", "Kyrgyzstan", "Tajikistan", "Turkmenistan", "Uzbekistan", "Afghanistan", "Bangladesh", "Bhutan",
+      "India", "Iran (Islamic Rep. of)", "Maldives", "Nepal", "Pakistan", "Sri Lanka"
+      ) #14
+
+    eastern_southeastern_asia <- c(
+      "China", "China, Hong Kong SAR", "China, Macao SAR", "Rep. of Korea", "Japan", "Mongolia", "Republic of Korea",
+      "Brunei Darussalam", "Cambodia", "Indonesia", "Lao People's Dem. Rep.", "Malaysia", "Myanmar", "Philippines",
+      "Singapore", "Thailand", "Timor-Leste", "Viet Nam"
+      ) #18
+
+    latin_america_caribbean <- c(
+      "Anguilla", "Antigua and Barbuda", "Aruba", "Bahamas", "Barbados", "Bonaire, Sint Eustatius and Saba",
+      "Bonaire", "British Virgin Islands", "Cayman Islands", "Cuba", "Curaçao", "Dominica", "Dominican Rep.",
+      "Grenada", "Guadeloupe", "Haiti", "Jamaica", "Martinique", "Montserrat", "Puerto Rico", "Saint Kitts and Nevis",
+      "Saint Lucia", "Saint Vincent and the Grenadines", "Sint Maarten (Dutch part)", "Suriname", 
+      "Trinidad and Tobago", "Turks and Caicos Islands", "United States Virgin Islands", "Honduras", "Costa Rica",
+      "El Salvador", "Guatemala", "Mexico", "Nicaragua", "Panama", "Argentina", "Belize", 
+      "Bolivia (Plurinational State of)", "Brazil", "Chile", "Colombia", "Ecuador", "French Guiana", 
+      "Falkland Islands (Malvinas)", "South Georgia & the South Sandwich Islands", "Guyana", "Paraguay", 
+      "Peru", "Uruguay", "Venezuela (Bolivarian Republic of)"
+      ) #49
+
+    oceania <- c(
+      "Australia","Christmas Island", "Cocos (Keeling) Islands", "Heard Island & McDonald Islands", "Norfolk Island",
+      "New Zealand", "Fiji", "New Caledonia", "Papua New Guinea", "Solomon Islands", "Vanuatu", "Kiribati", 
+      "Marshall Islands", "Micronesia (Federated States of)", "Nauru", "Northern Mariana Islands", "Palau", "Guam",
+      "French Polynesia", "Wallis and Futuna Island", "Pitcairn", "Cook Islands", "Niue", "Tokelau", "Tonga",
+      "Tuvalu", "American Samoa", "Samoa", "Wallis and Futuna Islands"
+      ) #29
+
+    europe_northern_america <- c(
+      "Bermuda", "Canada", "Greenland", "United States of America", "Bulgaria", "Belarus", "Czech Rep.", "Hungary",
+      "Rep. of Moldova", "Poland", "Romania", "Russian Federation", "Slovakia", "Ukraine", "Åland Islands", 
+      "Channel Islands", "Denmark", "Estonia","Faroe Islands", "Finland", "Isle of Man", "United Kingdom", "Iceland",
+      "Ireland", "Latvia", "Lithuania", "Norway", "Sweden", "Albania", "Andorra", "Bosnia and Herzegovina", "Croatia",
+      "Greece", "Italy", "Malta",  "Montenegro", "Portugal", "San Marino", "Serbia", "Serbia and Kosovo", "Slovenia",
+      "Spain", "Gibraltar" ,"The former Yugoslav Republic of Macedonia", "Austria", "Belgium", "Switzerland",
+      "Germany", "France", "Liechtenstein", "Luxembourg", "Monaco", "Netherlands", "Saint Pierre and Miquelon"
+      ) #53
+  
+  # add region variable to dataframe
+  df$region_influx <- rep(NA_character_,nrow(df))
+  if(outflux == TRUE)
+    df$region_outflux <- rep(NA_character_, nrow(df))
+
+  # creating list with regions
+  regions <- list(
+    sub_saharan_africa = sub_saharan_africa, 
+    northern_africa_western_asia = northern_africa_western_asia, 
+    central_southern_asia = central_southern_asia, 
+    eastern_southeastern_asia = eastern_southeastern_asia, 
+    latin_america_caribbean = latin_america_caribbean, 
+    oceania = oceania, 
+    europe_northern_america = europe_northern_america
+    )
+  
+  # loop for dataframe to have each country checked against the 6 regions
+  region_id_number = 1  
+  for (r in regions) {
+    # loop for individual region to be evaluated against every country in dataframe
+    for (c in r) {
+      # which rows match the specific region
+      row_matches_in <- as.numeric(c == df[["country_territory_of_asylum_residence"]])
+      row_matches_out <- as.numeric(c == df[["origin"]])
+      # go through each row and add region name if there's a match
+      for (n in 1:nrow(df)) {
+        if (row_matches_in[n] == 1) {
+          df$region_influx[n] <- names(regions)[region_id_number]
+          if (outflux==TRUE && row_matches_in[n] == row_matches_out[n])
+            df$region_outflux[n] <- names(regions)[region_id_number]
+        }
+        else if(outflux==TRUE && row_matches_out[n] == 1) {
+          df$region_outflux[n] <- names(regions)[region_id_number]
+        }
+      }
+    }
+  # add to region id number for naming
+    region_id_number = region_id_number + 1
+  }
+  
+   # make region variables categorical variables
+    if (outflux==TRUE)
+      df <- df %>% mutate_at(c("region_influx", "region_outflux"), as.factor)
+    else
+      df <- df %>% mutate_at(c("region_influx"), as.factor)
+  
+  # return new df
+  return(df)
+}
+
+# add regions to dataset
+pop_stat <- add_UN_regions(pop_stat)
+```
+
+# Tidying and investigating dataset 
+
+```{r Investigate the dataset}
+# avg table
+pop_stat %>% select(
+  refugee_including_refugeelike_situations, 
+  asylum_seekers_pending_cases, 
+  returned_refugees, 
+  internally_displaced_persons, 
+  returned_IDPs, 
+  stateless_persons, 
+  others_of_concern,
+  total_population
+  ) %>% 
+  rename(
+    "Refugees (Including Refugee-Like Situations"=refugee_including_refugeelike_situations, 
+    "Asylum Seekers: Pending Cases"=asylum_seekers_pending_cases, 
+    "Returned Refugees"=returned_refugees, 
+    "Internally Displaced Persons (IDP)"=internally_displaced_persons, 
+    "Returned IDPs"=returned_IDPs, 
+    "Stateless Persons"=stateless_persons, 
+    "Others of Concern"=others_of_concern, 
+    "Total Population"=total_population) %>% 
+  summarize_all(mean, na.rm=TRUE) %>% 
+  round(.,2) %>% 
+  t() %>% 
+  kable(
+    col.names = "Averages", 
+    caption = "Sub-Population Averages"
+    )
+
+# count the number of NAs in each variable
+colSums(is.na(pop_stat)) %>% 
+  kable(
+    col.name="Number of NAs",
+    caption = "Number of Missing Values (NA) for Each Variable"
+    )
+
+```
+
+```{r}
+# create region stat dataframe
+region_stat_influx <- data.frame()
+region_stat_outflux <- data.frame()
+
+# for loop with data by regions 
+for(i in 1951:2018) {
+  # subset to only have data from that year
+  df_influx <- pop_stat %>% 
+    select(
+      year, 
+      region_influx, 
+      total_population, 
+      refugee_including_refugeelike_situations, 
+      asylum_seekers_pending_cases, 
+      returned_refugees, 
+      stateless_persons, 
+      others_of_concern
+      ) %>% 
+    subset(year==i) %>% 
+    drop_na(region_influx)
+  
+  df_outflux <- pop_stat %>% 
+    select(
+      year, 
+      region_outflux, 
+      total_population, 
+      refugee_including_refugeelike_situations, 
+      asylum_seekers_pending_cases, 
+      returned_refugees, 
+      stateless_persons, 
+      others_of_concern
+      ) %>% 
+    subset(year==i) %>% 
+    drop_na(region_outflux)
+
+  # summarise 
+  df_influx <- df_influx %>% 
+    group_by(region_influx) %>% 
+    summarise_all(mean)
+  df_outflux <- df_outflux %>% 
+    group_by(region_outflux) %>% 
+    summarise_all(mean)
+  
+  # combine
+  if (i == 1951) {
+    region_stat_influx <- df_influx
+    region_stat_outflux <- df_outflux
+  }
+    
+  else if (i != 1951) {
+    region_stat_influx <- rbind(region_stat_influx, df_influx)
+    region_stat_outflux <- rbind(region_stat_outflux, df_outflux)
+  }
+}
+
+# change name of levels for region
+levels(region_stat_influx$region_influx) <- list(
+  `Central-South Asia`="central_southern_asia", 
+  `East-Southeast Asia`="eastern_southeastern_asia", 
+  `Euro, North America`="europe_northern_america", 
+  `LAC`="latin_america_caribbean", 
+  `North Africa, West Asia`="northern_africa_western_asia", 
+  `Oceania`="oceania", 
+  `Sub-Saharan Africa`="sub_saharan_africa"
+  )
+
+levels(region_stat_outflux$region_outflux) <- list(
+  `Central-South Asia`="central_southern_asia", 
+  `East-Southeast Asia`="eastern_southeastern_asia", 
+  `Euro, North America`="europe_northern_america", 
+  `LAC`="latin_america_caribbean", 
+  `North Africa, West Asia`="northern_africa_western_asia", 
+  `Oceania`="oceania", 
+  `Sub-Saharan Africa`="sub_saharan_africa"
+  )
+
+# drop NA's in region outflux
+region_stat_outflux <- drop_na(region_stat_outflux, region_outflux)
+
+# capitalize region variable name
+names(region_stat_influx)[names(region_stat_influx)=="region_influx"] <- "Region Influx"
+names(region_stat_outflux)[names(region_stat_outflux)=="region_outflux"] <- "Region Outflux"
+
+# datasets for average highest population for 1980:2000
+pop_stat$year_cut <- cut(pop_stat$year, c(1950,1980,2000,2020), dig.lab=4)
+
+# 1950-1980
+p1 <- pop_stat %>% 
+  filter(year_cut == "(1950,1980]") %>% 
+  group_by(country_territory_of_asylum_residence) %>% 
+  select(
+    country_territory_of_asylum_residence, 
+    total_population
+    ) %>% 
+  summarise_all(mean) %>% 
+  arrange(desc(total_population))
+
+p1 <- p1[order(p1$total_population),]
+
+p1$country_territory_of_asylum_residence <- factor(
+  p1$country_territory_of_asylum_residence, 
+  levels= p1$country_territory_of_asylum_residence
+  )
+
+p1 <- add_UN_regions(p1, outflux = FALSE)
+
+levels(p1$region_influx) <- list(
+  `Central-South Asia`="central_southern_asia", 
+  `East-Southeast Asia`="eastern_southeastern_asia", 
+  `Euro, North America`="europe_northern_america", 
+  `LAC`="latin_america_caribbean", 
+  `North Africa, West Asia`="northern_africa_western_asia", 
+  `Oceania`="oceania", 
+  `Sub-Saharan Africa`="sub_saharan_africa"
+  )
+
+names(p1)[names(p1)=="region_influx"] <- "Region Influx"
+
+# 1980-2000
+p2 <- pop_stat %>% 
+  filter(year_cut == "(1980,2000]") %>% 
+  group_by(country_territory_of_asylum_residence) %>% 
+  select(
+    country_territory_of_asylum_residence, 
+    total_population
+    ) %>% 
+  summarise_all(mean) %>% 
+  arrange(desc(total_population))
+
+p2 <- p2[order(p2$total_population),]
+
+p2$country_territory_of_asylum_residence <- factor(
+  p2$country_territory_of_asylum_residence, 
+  levels= p2$country_territory_of_asylum_residence
+  )
+
+p2 <- add_UN_regions(p2, outflux = FALSE)
+
+levels(p2$region_influx) <- list(
+  `Central-South Asia`="central_southern_asia", 
+  `East-Southeast Asia`="eastern_southeastern_asia", 
+  `Euro, North America`="europe_northern_america", 
+  `LAC`="latin_america_caribbean", 
+  `North Africa, West Asia`="northern_africa_western_asia", 
+  `Oceania`="oceania", 
+  `Sub-Saharan Africa`="sub_saharan_africa"
+  )
+
+names(p2)[names(p2)=="region_influx"] <- "Region Influx"
+
+# 1980-2000
+p3 <- pop_stat %>% 
+  filter(year_cut == "(2000,2020]") %>% 
+  group_by(country_territory_of_asylum_residence) %>% 
+  select(
+    country_territory_of_asylum_residence, 
+    total_population
+    ) %>% 
+  summarise_all(mean) %>% 
+  arrange(desc(total_population))
+
+p3 <- p3[order(p3$total_population),]
+
+p3$country_territory_of_asylum_residence <- factor(
+  p3$country_territory_of_asylum_residence, 
+  levels= p3$country_territory_of_asylum_residence
+  )
+
+p3 <- add_UN_regions(p3, outflux = FALSE)
+
+p3 <- p3 %>% subset(region_influx != "Various/Unknown")
+
+levels(p3$region_influx) <- list(
+  `Central-South Asia`="central_southern_asia", 
+  `East-Southeast Asia`="eastern_southeastern_asia", 
+  `Euro, North America`="europe_northern_america", 
+  `LAC`="latin_america_caribbean", 
+  `North Africa, West Asia`="northern_africa_western_asia", 
+  `Oceania`="oceania", 
+  `Sub-Saharan Africa`="sub_saharan_africa"
+  )
+
+names(p3)[names(p3)=="region_influx"] <- "Region Influx"
+```
+
+## Graphs and Tables
+
+```{r Graphs and Tables}
+# region influx
+# year vs total populations
+ggplot(region_stat_influx, aes(year, total_population, color=`Region Influx`)) +
+  facet_wrap(~`Region Influx`) +
+  geom_line() +
+  labs(
+    title="Total Influx Refugee Population Between 1951-2018", 
+    subtitle="Number of refugees who arrived at designated region", 
+    x="Year", 
+    y="Total Population"
+    ) +
+  scale_x_continuous(limits = c(1950,2020)) + 
+  scale_y_continuous(limits = c(0,10000)) +
+  theme_minimal()
+
+ggsave("figures/region_influx_line.jpeg")
+
+# boxplot of total population by region
+ggplot(region_stat_influx, aes(`Region Influx`, total_population)) +
+  geom_boxplot(
+    varwidth = T, 
+    fill="light blue"
+    ) +
+  labs(
+    title="Total Influx Refugee Population by Region", 
+    subtitle="Display of population ranges since 1951-2018", 
+    y="Total Population"
+    ) +
+  scale_y_continuous(limits = c(0,10000)) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggsave("figures/region_influx_boxplot.jpeg")
+
+# region outflux
+# year vs total population
+ggplot(region_stat_outflux, aes(year, total_population, color=`Region Outflux`)) +
+  facet_wrap(~`Region Outflux`) +
+  geom_line() +
+ labs(
+   title="Total Outflux Refugee Population Between 1951-2018", 
+   subtitle="Number of refugees who departed from designated region", 
+   x="Year", 
+   y="Total Population"
+   ) +
+  scale_x_continuous(limits = c(1950,2020)) + 
+  scale_y_continuous(limits = c(0,10000)) +
+  theme_minimal()
+
+ggsave("figures/region_outflux_line.jpeg")
+
+# boxplot of total population by region
+ggplot(region_stat_outflux, aes(`Region Outflux`, total_population)) +
+  geom_boxplot(
+    varwidth = T, 
+    fill="light blue"
+    ) +
+  labs(
+    title="Total Outflux Refugee Population by Region", 
+    subtitle="Display of population ranges since 1951-2018", y="Total Population"
+    ) +
+  scale_y_continuous(limits = c(0,10000)) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+ggsave("figures/region_outflux_boxplot.jpeg")
+
+# countries with highest total population
+ggplot(
+  p1[92:112,], 
+  aes(
+    x=country_territory_of_asylum_residence, 
+    y=total_population, 
+    color=`Region Influx`
+    )) +
+  geom_point(size=3) +
+  geom_segment(
+    aes(
+      x=country_territory_of_asylum_residence, 
+      xend=country_territory_of_asylum_residence, 
+      y=min(total_population), 
+      yend=max(total_population)
+      ), 
+    linetype="dashed", 
+    size=0.1
+    ) +
+  coord_flip() +
+  labs(
+    title="Top 20 Refugee Intake Countries in 1950-1980", 
+    subtitle = "Averaged total population for countries between 1950-1980",
+    x="Asylum Countries",
+    y="Total Population" 
+    ) +
+  theme_minimal()
+
+ggsave("figures/1950_1980_pop.jpeg")
+
+ggplot(
+  p2[148:168,], 
+  aes(
+    x=country_territory_of_asylum_residence, 
+    y=total_population, 
+    color=`Region Influx`)
+  ) +
+  geom_point(size=3) +
+  geom_segment(
+    aes(
+      x=country_territory_of_asylum_residence, 
+      xend=country_territory_of_asylum_residence, 
+      y=min(total_population), 
+      yend=max(total_population)
+      ), 
+    linetype="dashed", 
+    size=0.1
+    ) +
+  coord_flip() +
+  labs(
+    title="Top 20 Refugee Intake Countries in 1980-2000", 
+    subtitle = "Averaged total population for countries between 1980-2000", 
+    y="Total Population", 
+    x="Asylum Countries"
+    ) +
+  theme_minimal()
+
+ggsave("figures/1980_2000_pop.jpeg")
+
+ggplot(
+  p3[175:195,], 
+  aes(
+    x=country_territory_of_asylum_residence, 
+    y=total_population, 
+    color=`Region Influx`)
+  ) +
+  geom_point(size=3) +
+  geom_segment(
+    aes(
+      x=country_territory_of_asylum_residence, 
+      xend=country_territory_of_asylum_residence, 
+      y=min(total_population), 
+      yend=max(total_population)
+      ), 
+    linetype="dashed", 
+    size=0.1
+    ) +
+  coord_flip() +
+  labs(
+    title="Top 20 Refugee Intake Countries in 2000-2020", 
+    subtitle = "Averaged total population for countries between 2000-2020", 
+    y="Total Population", 
+    x="Asylum Countries"
+    ) +
+  theme_minimal()
+
+ggsave("figures/2000_2020_pop.jpeg")
+
+```
+
+
