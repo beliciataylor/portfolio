@@ -248,7 +248,7 @@ ggplot(origin_df, aes(x=region_origin, y=avg_pop)) +
 
 # Adding Statistics to Paper
 
-"During the Cold War period, which spanned between the end of the 1940s to the fall of the Soviet Union in 1991, the number of refugees worldwide grew from 3,022,235 in 1973 to 21,385,017 in 1993, a roughly ten-fold increase in a twenty-year period."
+"During the Cold War period, which spanned between the end of the 1940s to the fall of the Soviet Union in 1991, the number of refugees worldwide grew from 3 million in 1973 to 21 million in 1993, a roughly ten-fold increase in a twenty-year period."
 
 ```{r}
 pop_stat %>%
@@ -260,7 +260,7 @@ pop_stat %>%
   summarize(pop_1993 = sum(total_population))
 ```
 
-"According to the data-set, in 1982, Pakistan had 2,877,480 refugees from Afghanistan, and by 1991, 3,273,000 Afghan refugees were residing in Palestine. Iran also received a large number of refugees from Afghanistan; by 1991, Iran had 3,186,616 Afghan refugees."
+"According to the data-set, in 1979, Pakistan had 400 thousand refugees from Afghanistan, and by 1991, more than 3 million Afghan refugees were residing in Palestine."
 
 ```{r}
 pop_stat %>%
@@ -274,7 +274,7 @@ pop_stat %>%
   arrange(desc(total_population))
 ```
 
-"Somalia went from having 608,880 Ethiopian refugees in 1978 to 1,175,000 in 1979, almost double the amount."
+"In sub-Saharan Africa, Somalia saw the number of Ethiopian refugees, who were most likely escaping the Ethiopian Civil War, roughly double from 600 thousand in 1978 to 1.2 million in 1979."
 
 ```{r}
 pop_stat %>%
@@ -294,7 +294,7 @@ pop_stat %>%
   arrange(year)
 ```
 
-"In eastern and southeastern Asia, Hong Kong accepted 1,250,040 in 1996, which may be due to the Sino-Soviet conflicts."
+"In eastern and southeastern Asia, Hong Kong accepted 1.25 million in 1996,..."
 
 ```{r}
 pop_stat %>%
