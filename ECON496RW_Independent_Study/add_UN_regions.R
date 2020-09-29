@@ -110,7 +110,7 @@ add_UN_regions <- function(df) {
     for (c in r) {
       # store row region matches
       row_matches_asylum <- as.numeric(
-        c == df[["country_territory_of_asylum_residence"]]
+        c == df[["asylum_residence"]]
       )
       row_matches_origin <- as.numeric(
         c == df[["origin"]]
