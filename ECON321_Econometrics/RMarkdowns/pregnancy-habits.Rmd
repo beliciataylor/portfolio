@@ -31,23 +31,11 @@ library(texreg)
 data(bwght2, package='wooldridge')
 ```
 
-# Note on Post:
-
-This post was a final project from my undergraduate econometrics class in Fall 2019. 
-
 # Introduction and Motivation
-
-<img src="img/prenatal_visit_pic.jpg" style="max-width:25%;min-width:40px;float:right;" alt="" />
 
 In 2017, around 3.86 million births were registered in the United States, which was a 2% decrease in number of births in the previous year. There are an array of variables that affect the birth of each child, and the variables being analyzed in this study fall into one of two categories: descriptive and behavioral. The descriptive category are variables that characterize the mother, father, and baby; examples for the parents would be age, years of education, and race. For the baby, examples would be their apgar score and their birth weight. The behavioral category includes variables pertaining to the mother's habits during her pregnancy; examples include attending prenatal care visits, smoking, and drinking alcoholic beverages.
 
-<img src="img/pregnancy_smoking.jpg" style="max-width:25%;min-width:40px;float:right;" alt="" />
-
 A study done in 2017 showed that birth rates for women between the ages of 15-39 decreased around 2-4% (1). For non-Hispanic white women and Hispanic women, the birth rate decreased by 2-3%, whereas for non-Hispanic black women the birth rate went up a little less than 1% (1). There was an increase in the percentage of women who were getting prenatal care (77.3%), and the percentage of women who smoked decreased to 6.9% (1). With this background knowledge and using the Wooldridge dataset on birth weight (bwght2), I will investigate whether pregnancy habits such as prenatal care vists and smoking positively or negatively affects a child's birth weight, and I will also investigate whether characteristics such as age, years of education, and race positively or negatively affects a child's birth weight. 
-
-<img src="img/smoked_during_pregnancy.png" style="float:center;" alt="" />
-
-*Images used from (2) Smoking during Pregnancy, (1) Birth Final Data, 2018*
 
 # Data Set: bwght2 {.tabset .tabset-fade .tabset-pills}
 
@@ -238,7 +226,7 @@ stargazer((reg_weight %>% select(prenatal_visits, start_prenatal_visits, avg_cig
 pts <- c(-1,0,5,10,20,30,40)
 ```
 
-### PRENATAL CARE VISITS
+### Prenatal Care Visits
 
 ```{r Prenatal Care Visits Graphs and Tables, message=FALSE, results='hold'}
 # proportion tables for prenatal care visits
@@ -268,7 +256,7 @@ ggplot(reg_weight, aes(start_prenatal_visits, baby_weight)) +
 
 The first graph shows that the more prenatal care visits a mother has, then the higher her baby's log birth weight will be. Also, the last two graphs together show an interesting observation. The later a mother starts attending prenatal care visits, the fewer average prenatal care visits she has. This result shows that a mother will not suddenly have lots of prenatal visits in a short amount of time to make up for the time she did not have them. However, the second graph, which shows the relationship between start of prenatal care and log birth weight, shows that the relationship between the two is a flat line. This means that the start of prenatal care visits has a very minimal effect on the baby's birth weight.
 
-### AVERAGE CIGARETTES PER DAY
+### Average Cigarettes Per Day
 
 ```{r Average Cigarettes Graphs and Tables, message=FALSE, results='hold'}
 # proportion table of average cigarettes
@@ -288,7 +276,7 @@ The first graph shows that the higher the average of cigarettes per day a mother
 
 ## Economic Model
 
-$$birth\_weight = f(prenatal\_vists, start\_prenatal\_visit, avg\_cigarettes, baby\_gender, parent\_education, parent\_age, parents\_race)$$
+$$birth\_weight = f(prenatal\_vists, start\_prenatal\_visit, avg\_cigarettes, baby\_gender, \\ parent\_education, parent\_age, parents\_race)$$
 
 My economic model shows a relationship between the independent variables baby's gender, parent's years of education and age, number of prenatal visits, and average number cigarettes per day versus the dependent variable birth weight.
 
