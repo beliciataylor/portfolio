@@ -1,0 +1,210 @@
+---
+title: "Regression Analysis"
+author: "Belicia Rodriguez"
+date: 2019-10-24
+categories:
+  - undergraduate econometrics
+output:
+  html_document:
+    toc: yes
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+# call the necesary packages here
+library(wooldridge)
+library(tidyverse)
+library(knitr)
+```
+
+# Note on Post:
+
+This post is assignment 2 from my undergraduate econometrics class.
+
+# attend Dataset
+Documentation for the dataset 'attend' and later dataset 'htv' can be found [here](https://cran.r-project.org/web/packages/wooldridge/wooldridge.pdf).
+
+## Max, Min, Average
+
+Obtain the minimum, maximum, and average values for the variables atndrte (percent classes attended), priGPA (cumulative GPA prior to term), and ACT (ACT score). We will obtain the results using two different methods.
+
+(1) Using Summarize
+```{r, warning=FALSE}
+# download data into R
+data("attend", wooldridge)
+
+# first way using summarize
+attend %>% summarize(atndrte_min = min(atndrte), priGPA_min=min(priGPA), ACT_min = min(ACT), atndrte_max = max(atndrte), priGPA_max = max(priGPA), ACT_max = max(ACT), atndrte_mean = mean(atndrte), priGPA_mean = mean(priGPA), ACT_mean = mean(ACT)) %>% round(., 3) %>% gather(" ", ".") %>% kable()
+```
+
+(2) Using select and summary
+```{r, warning=FALSE}
+# second way using select and summary
+attend %>% select(atndrte, priGPA, ACT) %>% summary() %>% kable()
+```
+
+## Estimate model
+
+Estimate the model $$atndrte = \beta_0 + \beta_1 priGPA + \beta_2 ACT + u$$, to make it easier create an object with the model and then show the summary. 
+
+```{r}
+mc4<-lm(formula = atndrte ~ priGPA + ACT, attend)
+
+summary(mc4)
+```
+
+## Comparing Results of Averages
+
+(1) Calculate the predicted atndrte for all values and the mean of it. 
+
+```{r}
+# first method
+(meanyhat = mean(fitted(mc4)))
+```
+
+
+(2) Calculate the predicted value of atndrte for the average values of the independent variables.
+
+```{r}
+# second method
+means <- data.frame(priGPA = mean(attend$priGPA), ACT = mean(attend$ACT))
+
+(yhatmeans <- predict(mc4, means))
+
+```
+
+*Compare results.*
+
+The results are the same. The first method finds the mean of all the fitted values, which means the values that are on the line that minimizes the amount of squared residual, where y = atndrte and $x_1$ = priGPA and $x_2$ = ACT. Naturally, that would get the mean of $\hat{y}$.
+
+The second method first finds the mean of all the values of priGPA and ACT and then predicts the means within the linear model created in mc4. Both methods use different steps to arrive at the same conclusion for the mean of $\hat{y}$.
+
+
+## Predicted y Value
+
+(1) What is the predicted atndrte if priGPA = 3.65 and ACT = 20? 
+
+(2) What is the predicted difference in attendant rates between this and the one for the average independent variables calculated above?
+
+For this case, I will not use the predict function for your code.
+
+Retrive the coeffients and calculate the equation:
+
+$$atndrte = \hat\beta_0 + \hat\beta_1 3.65 + \hat\beta_2 20 + u$$
+```{r, results='hold'}
+yhat2 <- mc4$coefficients[1] + mc4$coefficients[2]*3.65+ mc4$coefficients[3]*20
+names(yhat2)<-NULL # removes the names 
+print(paste0("yhat = ", round((yhat2), 3)))
+print(paste0("Difference = ", round((yhat2-yhatmeans), 3)))
+
+```
+
+## Freshman and Sophomore Models
+
+(1) Run two more models one only for freshman another one only for sophomore.
+
+(2) Save the results in objects mfr, msoph respectibly
+
+Freshman Model
+```{r}
+mfr <- lm(formula = atndrte ~ priGPA + ACT, attend, frosh == 1)
+```
+
+Sophomore Model
+```{r}
+msoph <- lm(formula = atndrte ~ priGPA + ACT, attend, soph == 1)
+```
+
+## Table
+
+The table below compares $\beta's$, $R^2$ and observations for the models estimated. 
+
+Variables | All | Freshmen | Sophomore
+----------|-----|----------|----------
+$\beta_0$ | `r round(mc4$coefficient[1], 3)` | `r round(mfr$coefficient[1],3)`| `r round(msoph$coefficient[1],3)`
+$\beta_1$ | `r round(mc4$coefficient[2],3)` | `r round(mfr$coefficient[2],3)`| `r round(msoph$coefficient[2],3)`
+$\beta_2$ | `r round(mc4$coefficient[3],3)` | `r round(mfr$coefficient[3],3)`| `r round(msoph$coefficient[3],3)`
+$R^2$ | `r round(summary(mc4)$r.squared,3)` | `r round(summary(mfr)$r.squared, 3)`| `r round(summary(msoph)$r.squared,3)`
+$N$ | `r nobs(mc4)`| `r nobs(mfr)`| `r nobs(msoph)` 
+
+## Correlations
+
+Calculate the correlation between the residuals and the priGPA for the first model. 
+```{r}
+round(cor(mc4$residuals, attend$priGPA),10)
+```
+
+# HTV Dataset
+
+The HTV data set includes information on wages, education, parents’ education, and several other variables for 1,230 working men in 1991. 
+
+## Range, Percentages, Average 
+
+I will answer the following questions:
+
+(1) What is the range of the educ variable in the sample?
+(2) What percentage of men completed twelfth grade but no higher grade?
+(3) Do the men or their parents have, on average, higher levels of education?
+
+```{r, warning=FALSE, results='hold'}
+data("htv", wooldridge)
+
+# summary provides the mean and max of the variable therefore the range
+summary(htv$educ)
+
+# the mean of the logical expression gives the percentage of men that completed 12th grade but not higher.
+
+print(paste0("Percentage of men with HS= ", round((mean(htv$educ==12)), 3)))
+
+# See answers assignment 1 for this 
+htv %>% select(educ, motheduc,fatheduc) %>% summarise_all(mean) %>% gather() %>% setNames(., c(" ", "Average")) %>%kable(digits=3)
+```
+
+## Regression Model
+
+(1) Estimate the regression model $$educ = \beta_0 + \beta_1motheduc + \beta_2fatheduc + u$$ by OLS and report the results in the usual form. 
+
+```{r}
+# model 1
+model1 <- lm(educ ~ motheduc + fatheduc, htv)
+summary(model1)
+```
+
+(2) Add the variable abil (a measure of cognitive ability) to the regression from part (ii), and report the results in equation form. 
+
+```{r}
+# model 2
+model2 <- lm(educ ~ motheduc + fatheduc + abil, htv)
+summary(model2)
+
+```
+
+(3) Now estimate an equation where abil appears in quadratic form
+
+```{r}
+# model3
+model3 <- lm(educ ~ motheduc + fatheduc + abil + I(abil^2), htv)
+summary(model3)
+```
+
+Follow-up questions:
+
+(1) How much sample variation in educ is explained by parents’ education? Interpret the coefficient on motheduc.
+
+Parent's education explains `r round(summary(model1)$r.squared,3)` of the variation in education. `r round(model1$coefficient["motheduc"],3)`
+
+(2) Does “ability” help to explain variations in education, even after controlling for parents’ education? Explain.
+
+Yes, because for every unit of increase in "ability", a person's years of education increases by `r round(model2$coefficient['abil'],3)`, whereas for mother's education and father's education a person's years of education only increases by less than 0.2 (`r round(model2$coefficient['motheduc'],3) ` and `r round(model2$coefficient['fatheduc'],3)` respectively). Because the coefficient for ability is higher than the coefficients for mother and father's education, therefore, ability explains more of the variation.
+
+(3) Use estimates to graph relationship between predicted education and abil
+* Set motheduc and fatheduc at their average values in the sample, 12.18 and 12.45, respectively.
+
+```{r}
+dat<-data.frame(educhat=predict(model3), abil=htv$abil)
+plot<-ggplot(dat, aes(x=abil, y=educhat))+ # mapping x and y 
+  geom_point(col=4, alpha=.5)+ # scatter plot defining atributes for color and transparency
+  stat_function(fun=function(abil){(12.18*model3$coefficients['motheduc']) + (12.45*model3$coefficients['fatheduc']) + (abil*model3$coefficients['abil']) + I(abil^2)*model3$coefficients['I(abil^2)'] + model3$coefficients[1]}, geom="line", col=2)  + # plot the function of the relation between educ and ability
+  ggtitle(paste("Predicted Education and Ability")) # title of the graph
+print(plot)
+```

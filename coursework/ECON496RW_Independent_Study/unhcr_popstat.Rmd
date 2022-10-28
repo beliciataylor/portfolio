@@ -1,0 +1,312 @@
+---
+title: "UNHCR Population Statistics"
+author: "Belicia Rodriguez"
+date: "11/21/2019 (Updated 9/25/20)"
+output:
+  html_document:
+    df_print: paged
+    toc: true
+  pdf_document: default
+---
+```{r Set-Up RMarkdown, echo=FALSE, message=FALSE}
+# download packages
+library(tidyverse)
+library(knitr)
+library(ggplot2)
+library(scales)
+
+options(scipen=999)
+
+# include=FALSE: prevents code & results 
+# echo=FALSE: prevents code but not results
+# message=FALSE: prevents messages from codes
+# warning=FALSE: prevents warnings
+# eval=FALSE: prevents code from running
+```
+
+The UNHCR Refugee Agency provides population statistics for different subgroups of refugee populations. The data-set "unhcr_popstats.csv" includes roughly 260 countries and contains data between 1950-2018. The following code downloads the document, cleans the data (i.e changing variable names, defining column types, defining NA values), adds regional groupings to the data-set, view data-set information, and graphs regional groups vs average populations in a time series.
+
+This RMarkdown file accompanies section 2 of my project report titled, "Historical Development of Refugee Crises and Aid Response". A writing sample of this report, where I go into a more in-depth analysis of the results found in this RMarkdown, can be found on my website: (TBD)
+
+A note on update: My previous code was a bit too long, so I rewrote the code to be shorter and more efficient. I also cleaned up the ggplot graph code as well.
+
+# Download Data-set & Clean Data
+
+We'll be downloading "unhcr_popstats.csv" into our environment, changing the variable names to be more programming friendly, and looking at the first five rows of the data-frame. Afterwards, we'll replace blank strings ("") with NA values, change the variable data types, and fix the unicode spelling errors that most likely occured when the data was imported.
+
+```{r Download Data-set}
+# download data-set, rename variables, and assign data-types
+pop_stat <- read.csv("unhcr_popstats.csv", skip=3) %>% 
+  rename(
+    "year" = `Year`, 
+    "asylum_residence" = `Country...territory.of.asylum.residence`, 
+    "origin" = `Origin`, 
+    "refugee_including_refugeelike_situations" = `Refugees..incl..refugee.like.situations.`, 
+    "asylum_seekers_pending_cases" = `Asylum.seekers..pending.cases.`, 
+    "returned_refugees" = `Returned.refugees`, 
+    "internally_displaced_persons" = `Internally.displaced.persons..IDPs.`, 
+    "returned_IDPs" = `Returned.IDPs`, 
+    "stateless_persons" = `Stateless.persons`, 
+    "others_of_concern" = `Others.of.concern`, 
+    "total_population" = `Total.Population`
+    ) 
+# view imported data
+head(pop_stat)
+```
+
+```{r Clean Data, message=FALSE, warning=FALSE}
+# replace empty string with NA
+pop_stat$refugee_including_refugeelike_situations[pop_stat$refugee_including_refugeelike_situations==""] <- NA
+pop_stat$returned_refugees[pop_stat$returned_refugees==""] <- NA
+pop_stat$asylum_seekers_pending_cases[pop_stat$asylum_seekers_pending_cases==""] <- NA
+pop_stat$stateless_persons[pop_stat$stateless_persons==""] <- NA
+pop_stat$others_of_concern[pop_stat$others_of_concern==""] <- NA
+
+# replace "Various/Unknown" value with NA
+pop_stat$asylum_residence[pop_stat$asylum_residence=="Various/Unknown"] <- NA
+pop_stat$origin[pop_stat$origin=="Various/Unknown"] <- NA
+
+# change data types
+pop_stat <- pop_stat %>% 
+  mutate(
+    asylum_residence = as.factor(asylum_residence),
+    origin = as.factor(origin),
+    refugee_including_refugeelike_situations = as.integer(refugee_including_refugeelike_situations),
+    asylum_seekers_pending_cases = as.integer(asylum_seekers_pending_cases), 
+    returned_refugees = as.integer(returned_refugees), 
+    stateless_persons = as.integer(stateless_persons), 
+    others_of_concern = as.integer(others_of_concern), 
+    total_population = as.integer(total_population)
+    )
+
+# fix country names in both asylum_residence and origin
+for (var in c(pop_stat$asylum_residence, pop_stat$origin)) {
+  levels(var)[levels(var)=="Serbia and Kosovo (S/RES/1244 (1999))"] <- "Serbia and Kosovo"
+  levels(var)[levels(var)=="C\xf4te d'Ivoire"] <- "Cote d'Ivoire"
+  levels(var)[levels(var)=="Cura\xe7ao"] <- "Curacao"
+  levels(var)[levels(var)=="Dem. People's Rep. of Korea"] <- "Rep. of Korea"
+  levels(var)[levels(var)=="Palestinian"] <- "State of Palestine"
+}
+
+# view cleaned data-set
+head(pop_stat)
+```
+
+# Add Regional Categorizations
+
+The RScript "add_UN_regions.R" contains character vectors of all the countries that belong to a designated region. These regions are defined using the Sustainable Development Goals (SGD) regional groups, which can be found [on this website](https://unstats.un.org/sdgs/indicators/regional-groups). The character vectors are then used in the "add_UN_regions" function, which assigns each row of the data-frame, based on either the country of asylum residence or origin, the region of that location. The following cell runs that function for our data-set.
+
+```{r Add UN Regions}
+# import add_UN_regions function (& other vectors in script)
+source("add_UN_regions.R")
+
+# add regions to data-set
+pop_stat <- add_UN_regions(pop_stat)
+
+# view data-set with added regions
+head(pop_stat)
+```
+
+# Data-set Information
+
+A glimpse into our dataframe "pop_stat" shows that "asylum_residence", "origin", "region_asylum_residence", and "region_origin" are factor variables containing information about the countries and region for that observation. The variables denoting subgroups (i.e refugee_including_refugeelike_situations) are integer variable types containing the population of the subgroup for that country/region and year. The year variable gives the year for that population information.
+
+```{r Glimse into pop_stat}
+glimpse(pop_stat)
+```
+
+By looking at the proportion of NA's for each variable, we can see that "returned_refugees", "internally_displaced_persons", "returned_IDPs", "stateless_persons", and "others_of_concern" have more than 95% of their values as NA. "asylum_seekers_pending_cases" has a little less than half of their values as NA. "refugee_including_refugeelike_situations" has a quarter of their values as NA, and total population has only 3.44% NA values. "asylum_residence" and "origin" have less than 2.5% NA values, whereas "region_asylum_residence" has 1.4% and "region_origin" has 7.4%. The differences in the population and region value have to do with some countries not having been categorized in a region in the SDG regional groupings.
+
+```{r Proportion of NAs in pop_stat}
+data.frame("prop_NA" = round(colMeans(is.na(pop_stat)),4))
+```
+
+# Graphs
+
+## Asylum Residence Data
+
+The asylum residence data is a subset of the "pop_stat" data-frame with columns "year", "region_asylum_residence", and "total_population". "asylum_df" is created by grouping the data by "year" and "region_asylum_residence", then using summarize to create a new variable "avg_pop", which takes the average of the total population for each year and region combination. The NA values are dropped. We've also included the summary of the data-frame to display the data statistical information.
+
+```{r Create asylum_df, message=FALSE}
+asylum_df <- pop_stat %>% 
+  select(year, region_asylum_residence, total_population) %>%
+  group_by(region_asylum_residence, year) %>%
+  summarize(avg_pop = mean(total_population)) %>%
+  drop_na() %>%
+  as.data.frame()
+
+summary(asylum_df)
+```
+
+The "asylum_df" line graph shows the trends in the average "total population" of refugees entering each region for asylum residence.
+
+```{r asylum_df Line Graph, message=FALSE}
+ggplot(asylum_df, aes(x=year, y=avg_pop, color = region_asylum_residence)) +
+  geom_line() +
+  labs(
+    caption = expression(paste("Figure 1: ", italic("Average refugee population entering one of the seven global-regions between 1951-2018"))), 
+    x="Year", 
+    y="Average Population"
+    ) +
+  scale_x_continuous(limits = c(1950,2020)) + 
+  facet_wrap(
+    ~region_asylum_residence, 
+    scales='free', 
+    labeller = labeller(region_asylum_residence = rename_region)
+    ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+    legend.position="none",
+    plot.caption = element_text(hjust=0.0, size=rel(0.9))
+    )
+
+ggsave("figures/region_asylum_linegraph.jpeg")
+```
+
+
+## Origin of Refugee Population Data (Not Included in Paper)
+
+The origin of refugee population data is constructed similarly to the "asylum_df". "origin_df" is a subset of the "pop_stat" data-frame with columns "year", "region_origin", and "total_population". "origin_df" is created by grouping the data by "year" and "region_origin", then using summarize to create a new variable "avg_pop", which takes the average of the total population for each year and region combination. The NA values are dropped. We've also included the summary of the data-frame to display the data statistical information.
+
+```{r Create origin_df, message=FALSE}
+origin_df <- pop_stat %>% 
+  select(year, region_origin, total_population) %>%
+  group_by(region_origin, year) %>%
+  summarize(avg_pop = mean(total_population)) %>%
+  drop_na() %>%
+  as.data.frame()
+
+summary(origin_df)
+```
+
+The "origin_df" line graph shows the trends in the average "total population" of people exiting each region and becoming refugees.
+
+```{r origin_df Line Graph, message=FALSE}
+ggplot(origin_df, aes(x=year, y=avg_pop, color = region_origin)) +
+  geom_line() +
+  labs(
+    caption = expression(paste("Figure 2: ", italic("Average refugee population exiting one of the seven regions between 1951-2018"))), 
+    x="Year", 
+    y="Average Population"
+    ) +
+  scale_x_continuous(limits = c(1950,2020)) + 
+  facet_wrap(
+    ~region_origin, 
+    scales='free', 
+    labeller = labeller(region_origin = rename_region)
+    ) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1),
+    legend.position="none",
+    plot.caption = element_text(hjust=0.0, size=rel(0.9))
+    )
+
+ggsave("figures/region_origin_linegraph.jpeg")
+```
+
+## Boxplots (Not Included in Paper)
+
+The "asylum_df" boxplot shows average refugee "total population" quartiles for each region.
+
+```{r asylum_df Boxplot, message=FALSE, warning=FALSE}
+ggplot((asylum_df %>% filter(year <= 1992)), aes(x=region_asylum_residence, y=avg_pop)) +
+  geom_boxplot(varwidth = T, fill="light blue") +
+  labs(
+    caption = expression(paste("Extra Figure: ", italic("Average refugee population entering one of the seven global regions between 1951-2018"))),
+    x = "Regions",
+    y = "Average Population"
+  ) +
+  scale_x_discrete(labels=rename_region) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 35, hjust = 1),
+    plot.caption = element_text(hjust=0.0, size=rel(0.9))
+    )
+```
+
+The "origin_df" boxplot shows average "total population" quartiles for each region.
+
+```{r origin_df Boxplot, message=FALSE, warning=FALSE}
+ggplot(origin_df, aes(x=region_origin, y=avg_pop)) +
+  geom_boxplot(varwidth = T, fill="light blue") +
+  labs(
+    caption = expression(paste("Extra Figure: ", italic("Average refugee population exiting one of the seven global regions between 1951-2018"))),
+    x = "Regions",
+    y = "Average Population"
+  ) +
+  scale_x_discrete(labels=rename_region) +
+  scale_y_continuous(limits = c(0,60000)) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 35, hjust = 1),
+    plot.caption = element_text(hjust=0.0, size=rel(0.9))
+    )
+```
+
+
+# Adding Statistics to Paper
+
+"During the Cold War period, which spanned between the end of the 1940s to the fall of the Soviet Union in 1991, the number of refugees worldwide grew from 3 million in 1973 to 21 million in 1993, a roughly ten-fold increase in a twenty-year period."
+
+```{r}
+pop_stat %>%
+  filter(year == 1973) %>%
+  summarize(pop_1973 = sum(total_population))
+
+pop_stat %>%
+  filter(year == 1993) %>%
+  summarize(pop_1993 = sum(total_population))
+```
+
+"According to the data-set, in 1979, Pakistan had 400 thousand refugees from Afghanistan, and by 1991, more than 3 million Afghan refugees were residing in Palestine."
+
+```{r}
+pop_stat %>%
+  filter(asylum_residence == "Pakistan" & (year == 1991 | year == 1979) & origin=="Afghanistan") %>%
+  select(asylum_residence, origin, year, total_population, region_asylum_residence, region_origin) %>%
+  arrange(desc(total_population))
+
+pop_stat %>%
+  filter(asylum_residence == "Iran (Islamic Rep. of)" & (year == 1991 | year == 1979) & origin=="Afghanistan") %>%
+  select(asylum_residence, origin, year, total_population, region_asylum_residence, region_origin) %>%
+  arrange(desc(total_population))
+```
+
+"In sub-Saharan Africa, Somalia saw the number of Ethiopian refugees, who were most likely escaping the Ethiopian Civil War, roughly double from 600 thousand in 1978 to 1.2 million in 1979."
+
+```{r}
+pop_stat %>%
+  filter(asylum_residence=="Somalia" & (year==1978 | year==1979) & origin=="Ethiopia") %>%
+  select(asylum_residence, origin, year, total_population, region_asylum_residence, region_origin) %>%
+  arrange(year)
+```
+"Many countries in Europe and North America such as Germany and the United States of America had an influx of hundreds of thousands of refugees during the 1950s up to the 1980s."
+
+```{r}
+pop_stat %>%
+  select(asylum_residence, origin, year, total_population, region_asylum_residence, region_origin) %>%
+  filter(
+    (year < 1990) & 
+    (asylum_residence=="Germany" | asylum_residence=="United States of America")
+    ) %>%
+  arrange(year)
+```
+
+"In eastern and southeastern Asia, Hong Kong accepted 1.25 million in 1996,..."
+
+```{r}
+pop_stat %>%
+  select(asylum_residence, origin, year, total_population, region_asylum_residence, region_origin) %>%
+  filter(
+    year <= 1992 &
+    year >= 1960 &
+    asylum_residence == "China, Hong Kong SAR" &
+    origin == "China"
+  ) %>%
+  arrange(year)
+```
+
+
+
